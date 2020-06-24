@@ -20,18 +20,16 @@ import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.NaverMapSdk;
 import com.naver.maps.map.OnMapReadyCallback;
-import com.naver.maps.map.overlay.LocationOverlay;
 import com.naver.maps.map.util.FusedLocationSource;
 
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         setContentView(R.layout.activity_main);
+        locationSource = new FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE);
         FragmentManager fm = getSupportFragmentManager();
         MapFragment mapFragment = (MapFragment)fm.findFragmentById(R.id.map_fragment);
         if(mapFragment==null){
@@ -44,22 +42,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onMapReady(@NonNull final NaverMap naverMap) {
+
         naverMap.setMapType(NaverMap.MapType.Basic);
-        LocationOverlay locationOverlay = naverMap.getLocationOverlay();
-        locationOverlay.setVisible(true);
-        //locationOverlay.setPosition(new LatLng(37.5670135, 126.9783740));
+
         final Button btnOnOff = findViewById(R.id.layer_groupe_cadastral);
         final Spinner spinner = findViewById(R.id.spinner2);
 
         final String[] data = getResources().getStringArray(R.array.choiceMapMode);
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_dropdown_item_1line,data);
         spinner.setAdapter(adapter);
-
-        naverMap.addOnLocationChangeListener(location ->
-                Toast.makeText(this,
-                        location.getLatitude() + ", " + location.getLongitude(),
-                        Toast.LENGTH_SHORT).show());
-
         //타입 선택 스피너
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
