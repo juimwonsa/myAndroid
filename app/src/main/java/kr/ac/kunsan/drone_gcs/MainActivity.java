@@ -15,15 +15,21 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.naver.maps.geometry.LatLng;
+import com.naver.maps.map.CameraPosition;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.NaverMapSdk;
 import com.naver.maps.map.OnMapReadyCallback;
+import com.naver.maps.map.overlay.LocationOverlay;
 import com.naver.maps.map.util.FusedLocationSource;
 
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
+    private FusedLocationSource locationSource;
+    private NaverMap naverMap;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,16 +47,40 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,  @NonNull int[] grantResults) {
+        if (locationSource.onRequestPermissionsResult(
+                requestCode, permissions, grantResults)) {
+            if (!locationSource.isActivated()) { // 권한 거부됨
+                naverMap.setLocationTrackingMode(LocationTrackingMode.None);
+            }
+            return;
+        }
+        super.onRequestPermissionsResult(
+                requestCode, permissions, grantResults);
+    }
+
+    @Override
     public void onMapReady(@NonNull final NaverMap naverMap) {
-
         naverMap.setMapType(NaverMap.MapType.Basic);
+        naverMap.setLocationSource(locationSource);
+        //naverMap.get
+        CameraPosition cameraPosition = new CameraPosition(
+                new LatLng(37.5666102, 126.9783881), // 대상 지점
+                16, // 줌 레벨
+                20, // 기울임 각도
+                180 // 베어링 각도
+        );
 
+
+        naverMap.setLocationTrackingMode(LocationTrackingMode.Follow);
         final Button btnOnOff = findViewById(R.id.layer_groupe_cadastral);
         final Spinner spinner = findViewById(R.id.spinner2);
-
         final String[] data = getResources().getStringArray(R.array.choiceMapMode);
+
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_dropdown_item_1line,data);
         spinner.setAdapter(adapter);
+
         //타입 선택 스피너
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
