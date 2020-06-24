@@ -15,14 +15,16 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.naver.maps.geometry.LatLng;
+import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.NaverMapSdk;
 import com.naver.maps.map.OnMapReadyCallback;
+import com.naver.maps.map.overlay.LocationOverlay;
+import com.naver.maps.map.util.FusedLocationSource;
 
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
-
 
 
     @Override
@@ -31,29 +33,34 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         setContentView(R.layout.activity_main);
         FragmentManager fm = getSupportFragmentManager();
-
         MapFragment mapFragment = (MapFragment)fm.findFragmentById(R.id.map_fragment);
         if(mapFragment==null){
             mapFragment = MapFragment.newInstance();
             fm.beginTransaction().add(R.id.map_fragment, mapFragment).commit();
         }
-
         mapFragment.getMapAsync(this);
 
     }
 
-
-
     @Override
-    public void onMapReady(final NaverMap naverMap) {
-
+    public void onMapReady(@NonNull final NaverMap naverMap) {
         naverMap.setMapType(NaverMap.MapType.Basic);
+        LocationOverlay locationOverlay = naverMap.getLocationOverlay();
+        locationOverlay.setVisible(true);
+        //locationOverlay.setPosition(new LatLng(37.5670135, 126.9783740));
+        final Button btnOnOff = findViewById(R.id.layer_groupe_cadastral);
+        final Spinner spinner = findViewById(R.id.spinner2);
 
-        final Spinner spinner = (Spinner)findViewById(R.id.spinner2);
         final String[] data = getResources().getStringArray(R.array.choiceMapMode);
         ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,android.R.layout.simple_dropdown_item_1line,data);
         spinner.setAdapter(adapter);
 
+        naverMap.addOnLocationChangeListener(location ->
+                Toast.makeText(this,
+                        location.getLatitude() + ", " + location.getLongitude(),
+                        Toast.LENGTH_SHORT).show());
+
+        //타입 선택 스피너
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -77,17 +84,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         break;
                 }
             }
-
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-
             }
         });
 
-
-
-
-
+        //지적 편집도 활성화버튼
+        btnOnOff.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(!naverMap.isLayerGroupEnabled(NaverMap.LAYER_GROUP_CADASTRAL)) {
+                    naverMap.setLayerGroupEnabled(NaverMap.LAYER_GROUP_CADASTRAL, true);
+                    btnOnOff.setText("지적 편집도 비활성화");
+                }
+                else{
+                    naverMap.setLayerGroupEnabled(NaverMap.LAYER_GROUP_CADASTRAL, false);
+                    btnOnOff.setText("지적 편집도 활성화");
+                }
+            }
+        });
     }
 
 }
