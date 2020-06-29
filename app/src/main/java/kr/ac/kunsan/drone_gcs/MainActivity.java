@@ -4,9 +4,12 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -14,22 +17,44 @@ import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.Toast;
 
-import com.naver.maps.geometry.LatLng;
-import com.naver.maps.map.CameraPosition;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.NaverMap;
-import com.naver.maps.map.NaverMapSdk;
 import com.naver.maps.map.OnMapReadyCallback;
-import com.naver.maps.map.overlay.LocationOverlay;
 import com.naver.maps.map.util.FusedLocationSource;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserFactory;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.Map;
+
+import javax.net.ssl.HttpsURLConnection;
 
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
     private FusedLocationSource locationSource;
     private NaverMap naverMap;
-
+    String pnu = "";
+    String ag_geom = "";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,16 +87,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onMapReady(@NonNull final NaverMap naverMap) {
+        Context context ;
         naverMap.setMapType(NaverMap.MapType.Basic);
         naverMap.setLocationSource(locationSource);
-        //naverMap.get
-        CameraPosition cameraPosition = new CameraPosition(
-                new LatLng(37.5666102, 126.9783881), // 대상 지점
-                16, // 줌 레벨
-                20, // 기울임 각도
-                180 // 베어링 각도
-        );
+        naverMap.setOnMapClickListener((point, coord) ->{
+            Toast.makeText(this, coord.latitude + ", " + coord.longitude,
+                    Toast.LENGTH_SHORT).show();
 
+            String latitude = Double.toString(coord.latitude);
+            String longitude = Double.toString(coord.longitude);
+
+            /* DB 대조 */
+            ContentValues values = new ContentValues();
+            values.put("coords", longitude+","+latitude);
+            NetworkTask networkTask = new NetworkTask("https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc?request=coordsToaddr&"+values.toString() +"&sourcecrs=epsg:4326&output=json&orders=addr");
+            networkTask.execute();
+        });
 
         naverMap.setLocationTrackingMode(LocationTrackingMode.Follow);
         final Button btnOnOff = findViewById(R.id.layer_groupe_cadastral);
@@ -124,6 +155,89 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
         });
+    }
+
+    public static class RequestHttpURLConnection {
+
+        public String request(String _url) {
+
+
+            try {
+                URL url = new URL(_url);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                Log.d("NaverReverseGeocoding", "apiURL : " + _url);
+                // [2-1]. conn 설정.
+                conn.setRequestMethod("GET"); // URL 요청에 대한 메소드 설정 : GET/POST.
+                conn.setRequestProperty("Content-type", "application/json");
+                conn.setRequestProperty("X-NCP-APIGW-API-KEY-ID", "f8pw9359ww");
+                conn.setRequestProperty("X-NCP-APIGW-API-KEY", "gcQAP4XlKaVxoEPw4cNTlX8uNlDA6HIwVDBw4VGg");
+                int responseCode = conn.getResponseCode();
+                Log.d("HTTP 응답 코드: ", ""+responseCode);
+                BufferedReader br;
+                if (responseCode == 200) {
+                    br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                } else {
+                    br = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+                }
+                String inputLine;
+                StringBuffer response = new StringBuffer();
+                while ((inputLine = br.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                br.close();
+//                    System.out.println(response.toString());
+                Log.d("HTTP body: ", response.toString());
+
+                JsonParser jsonParser = new JsonParser();
+                JSONObject jsonObj = (JSONObject) jsonParser.parse(response.toString());
+                JSONArray array = (JSONArray) jsonObj.get("result");
+
+                JsonArray jsonArray = (JsonArray) jsonParser.parse(response.toString());
+                String add = new String();
+                for(int i=0; i < array.length(); i++) {
+                    JSONObject personObject = (JSONObject) array.get(i);
+                    System.out.println(personObject.get("name"));
+                }
+
+
+                return add;
+
+
+            } catch (MalformedURLException e) { // for URL.
+                e.printStackTrace();
+            } catch (IOException e) { // for openConnection().
+                e.printStackTrace();
+            }
+            return null;
+        }
+    }
+    public class NetworkTask extends AsyncTask<Void, Void, String> {
+        String url;
+
+        NetworkTask(String url){
+            this.url = url;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected String doInBackground(Void... params) {
+            String result;
+            RequestHttpURLConnection requestHttpURLConnection = new RequestHttpURLConnection();
+            result = requestHttpURLConnection.request(url);
+            return result; // 결과가 여기에 담깁니다. 아래 onPostExecute()의 파라미터로 전달됩니다.
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            // 통신이 완료되면 호출됩니다.
+            // 결과에 따른 UI 수정 등은 여기서 합니다.
+            System.out.println(result);
+            Log.d("HTTP Result : ", result);
+        }
     }
 
 }
